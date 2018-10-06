@@ -1,0 +1,10 @@
+rule BS
+  command = curl https://api.csswg.org/bikeshed/ -F file=@$in -F force=1 > $out
+  description = HTML $in
+  pool = console
+
+build ../docs/p1269.html: BS p1269.bs
+default ../docs/p1269.html
+
+build clean: BS
+  command = rm -f ../docs/p1269.html
