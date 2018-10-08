@@ -1381,7 +1381,7 @@ pre .property::before, pre .property::after {
   <div class="head">
    <p data-fill-with="logo"></p>
    <h1 class="p-name no-ref" id="title">P1269R0<br>Three Years with the Networking TS</h1>
-   <h2 class="no-num no-toc no-ref heading settled" id="subtitle"><span class="content">Published Proposal, <time class="dt-updated" datetime="2018-10-06">2018-10-06</time></span></h2>
+   <h2 class="no-num no-toc no-ref heading settled" id="subtitle"><span class="content">Published Proposal, <time class="dt-updated" datetime="2018-10-07">2018-10-07</time></span></h2>
    <div data-fill-with="spec-metadata">
     <dl>
      <dt>This version:
@@ -1404,7 +1404,7 @@ pre .property::before, pre .property::after {
   </div>
   <div class="p-summary" data-fill-with="abstract">
    <h2 class="no-num no-toc no-ref heading settled" id="abstract"><span class="content">Abstract</span></h2>
-   <p>Experience with the Networking TS and some concerns about its wider adoption</p>
+   <p>Before the Networking TS reaches inclusion in the standard, we feel its important to share our experience using it.  This paper intends to highlight limitations we’ve found in ergonomics and performance, along with suggestions on how they might be remedied.  In particular, through tighter integration with coroutines, futures and executors.</p>
   </div>
   <nav data-fill-with="table-of-contents" id="toc">
    <h2 class="no-num no-toc no-ref" id="contents">Table of Contents</h2>
@@ -1437,12 +1437,12 @@ pre .property::before, pre .property::after {
    <p>Over the past three years we’ve re-hosted the vast majority of the networking components in our
 system on top of a close proxy for the Networking TS (via its upstream in <a href="https://github.com/chriskohlhoff/asio/tree/master/asio">ASIO</a>).  It’s provided us with
 opportunities to use it in a wide variety of capacities and to come to terms with its strengths, and
-its limitations.  We believe those limitations to be significant enough to warrant significant
+its limitations.  We believe those limitations to be compelling enough to warrant significant
 changes before inclusion in the standard.</p>
    <h2 class="heading settled" data-level="2" id="a-summary-of-how-we-use-asio-and-modifications-weve-made"><span class="secno">2. </span><span class="content">A summary of how we use ASIO and modifications we’ve made</span><a class="self-link" href="#a-summary-of-how-we-use-asio-and-modifications-weve-made"></a></h2>
    <p>At MongoDB we have an architecture that is a mixture of sync and async.  For certain stages of
 ingress processing and for scatter/gather IO, we’re in a good position to be fully async.  For other
-portions of our operation lifecycle we forced into a sync model, either for practical (accessing
+portions of our operation lifecycle we are forced into a sync model, either for practical (accessing
 disk) or performance (the overhead of repeated context switches when needing to perform variably
 expensive computation) reasons.</p>
    <p>We do all of our networking on top of ASIO, but have added to it to support:</p>
@@ -1458,13 +1458,13 @@ expensive computation) reasons.</p>
    <p>This section enumerates areas of weakness we’ve found in the current API.</p>
    <h3 class="heading settled" data-level="3.1" id="synchronous-io"><span class="secno">3.1. </span><span class="content">Synchronous IO</span><a class="self-link" href="#synchronous-io"></a></h3>
    <p>The Networking TS offers limited support for synchronous networking.  In particular, it offers
-timeouts exclusively via its async api.  A sync api caller many not early return from send/recv/poll, and
-worse, risks near-perpetual hangs in the case of networking black holes.  Further, its current
-embodiment in ASIO makes it impossible to work around yourself, as retry loops are hidden behind most
-every function.  While these loops are required to work around interrupt handling on POSIX systems,
-its unfortunate that core functions like ::read() and ::write() aren’t instead
-named ::read_all() and ::write_all() as that would allow customization at a
-layer above the os native handles.</p>
+timeouts exclusively via its async api.  A sync api caller many not early return from
+send/recv/poll, and worse, risks near-perpetual hangs in the case of networking black holes.
+Further, its current embodiment in ASIO makes it impossible to work around yourself, as retry loops
+are hidden behind most every function.  While these loops are required for interrupt handling on
+POSIX systems, its unfortunate that core functions like ::read() and ::write() aren’t instead named
+::read_all() and ::write_all() as access to a lower level api would allow customization at a layer
+above the os native handles.</p>
    <p>An additional quality of implementation complaint is that we’ve seen technical limitations around
 transitioning sockets between asynchronous and synchronous.  For the epoll reactor, async accept
 followed by sync operations, forced spurious wakeups on the original context for the lifetime of
@@ -1474,15 +1474,15 @@ has in doing so durably.  Contexts wrap things like IO completion ports and epol
 important to understand precisely how ASIO is using them.</p>
    <h3 class="heading settled" data-level="3.2" id="lifetime"><span class="secno">3.2. </span><span class="content">Lifetime</span><a class="self-link" href="#lifetime"></a></h3>
    <p>This is an artifact of how difficult callbacks are to use in C++, but it’s quite awkward to
-correctly extend the lifetime of objects used asynchronously inside of ASIO.  Objects generally need
+correctly manage the lifetime of objects used asynchronously inside of ASIO.  Objects generally need
 to be held by shared_ptr and shared_ptr anchors need to be added to successive callback chains.
-While this is easier to manage with Future’s, and more or less obviated with coroutines, we’re
+While this is easier to handle with Future’s, and more or less obviated with coroutines, we’re
 currently considering a Networking TS blocked behind neither of those.  I have strong reservations
 about the usability of any async framework in C++ built only on top of callbacks.</p>
    <h3 class="heading settled" data-level="3.3" id="timers"><span class="secno">3.3. </span><span class="content">Timers</span><a class="self-link" href="#timers"></a></h3>
    <p>More directly relevant for ASIO, the intermixing of lifetime for socket operations and timers to
-time them out is difficult to manage.  Timers and their sockets need to be lifetime extended in both
-sets of callbacks, and timers need to be cancelled after socket operations have proceeded past
+time them out is difficult to manage.  Timers and their sockets need to live as least as long as
+both sets of callbacks, and timers need to be cancelled after socket operations have proceeded past
 certain points.  This interplay requires careful orchestration with external concurrency primitives
 due to guarantees around when timers fire (timer callbacks, after cancellation, may fire any time
 after cancellation, on destruction or not at all).  Our experience suggests that directly attaching
