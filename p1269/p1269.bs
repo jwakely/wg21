@@ -44,7 +44,7 @@ This section enumerates areas of weakness we've found in the current API.
 ## Synchronous IO
 
 The Networking TS offers limited support for synchronous networking.  In particular, it offers
-timeouts exclusively via its async api.  A sync api caller many not early return from
+timeouts exclusively via its async api.  A sync api caller may not early return from
 send/recv/poll, and worse, risks near-perpetual hangs in the case of networking black holes.
 Further, its current embodiment in ASIO makes it impossible to work around yourself, as retry loops
 are hidden behind most every function.  While these loops are required for interrupt handling on
@@ -65,14 +65,14 @@ important to understand precisely how ASIO is using them.
 This is an artifact of how difficult callbacks are to use in C++, but it's quite awkward to
 correctly manage the lifetime of objects used asynchronously inside of ASIO.  Objects generally need
 to be held by shared_ptr and shared_ptr anchors need to be added to successive callback chains.
-While this is easier to handle with Future's, and more or less obviated with coroutines, we're
+While this is easier to handle with Futures, and more or less obviated with coroutines, we're
 currently considering a Networking TS blocked behind neither of those.  I have strong reservations
 about the usability of any async framework in C++ built only on top of callbacks.
 
 ## Timers
 
 More directly relevant for ASIO, the intermixing of lifetime for socket operations and timers to
-time them out is difficult to manage.  Timers and their sockets need to live as least as long as
+time them out is difficult to manage.  Timers and their sockets need to live at least as long as
 both sets of callbacks, and timers need to be cancelled after socket operations have proceeded past
 certain points.  This interplay requires careful orchestration with external concurrency primitives
 due to guarantees around when timers fire (timer callbacks, after cancellation, may fire any time
@@ -83,7 +83,7 @@ timeouts to async networking operations would substantially improve ease of use.
 
 ### Relationship with the Executors TS
 
-Long before the current Executors TS, ASIO had io_service's with executor style APIs.  Today, it has
+Long before the current Executors TS, ASIO had io_services with executor style APIs.  Today, it has
 context objects with methods like poll, poll_one, run,
 run_one, run_for and run_one_for, which control the dedication of
 caller resources to processing ASIO requests.  On the other side, we see methods like
